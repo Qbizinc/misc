@@ -5,8 +5,10 @@ python3 -m pip install --upgrade acryl-datahub
 datahub version # to confirm the installation
 
 # To launch the service
-
 datahub docker quickstart # this may take awhile
 
 # datahub will be running on http://<ip or localhost>:9002
+
+# To load sample data
+datahub docker ingest-sample-data
 
