@@ -1,3 +1,9 @@
+# This Lambda searches for EC2 instances with the tag key "autostop"
+# and value of 1-24, representing the UTC hour to stop the instance.
+# The Lambda can be triggered by an Eventbridge or Cloudwatch rule.
+
+# Adapted from https://aws.amazon.com/premiumsupport/knowledge-center/start-stop-lambda-eventbridge/
+
 import boto3
 from datetime import datetime, timezone
 
@@ -28,3 +34,13 @@ for instance in instances:
         if tag['Key'] == 'autostop' and tag['Value'] == current_hour:
             instances_to_stop.append(instance_id)
 
+region = 'us-west-2'
+ec2 = boto3.client('ec2', region_name=region)
+
+def lambda_handler(event, context):
+    if instances_to_stop:
+        ec2.stop_instances(InstanceIds=instances_to_stop)
+        print('stopped your instances: ' + str(instances_to_stop))
+    else:
+        print('no instances to stop')
+        
