@@ -8,7 +8,8 @@ sudo usermod -a -G docker ec2-user
 
 docker info # to confirm installation
 
-# docker compose:
+# docker compose
+# Note: docker compose needs to be invoked with 'docker compose', not 'docker-compose'
 
 DOCKER_CONFIG=${DOCKER_CONFIG:-$HOME/.docker}
 mkdir -p $DOCKER_CONFIG/cli-plugins
