@@ -13,12 +13,13 @@ import boto3
 [mfa]
 arn = <arn for mfa device>
 
+- mfa section will be added if it doesn't exist
+- user will be prompted for arn if it doesn't exist
 - succesfully running this script will add temporary credentials
   to the mfa section of the .aws/credentials file. To use these credentials
   specify --profile mfa in your aws commands. E.g.:
     aws --profile mfa s3 ls
 """
-
 
 home = Path.home()
 credentials_file = Path(home, '.aws/credentials')
@@ -27,8 +28,18 @@ config = configparser.ConfigParser()
 
 config.read(credentials_file)
 
-mfa_arn = config['mfa']['arn']
-token = input("token: ")
+sections = config.sections()
+
+if 'mfa' not in config.sections():
+    config['mfa'] = {}
+
+if 'arn' not in config['mfa']:
+    mfa_arn = input("mfa identifier arn: ")
+    config['mfa']['arn'] = mfa_arn
+else:
+    mfa_arn = config['mfa']['arn']
+
+token = input("mfa token: ")
 
 response = client.get_session_token(
     SerialNumber=mfa_arn,
@@ -45,4 +56,3 @@ config['mfa']['aws_session_token'] = aws_session_token
 
 with open(credentials_file, "w") as f:
     config.write(f)
-
