@@ -12,6 +12,11 @@ import boto3
 
 [mfa]
 arn = <arn for mfa device>
+
+- succesfully running this script will add temporary credentials
+  to the mfa section of the .aws/credentials file. To use these credentials
+  specify --profile mfa in your aws commands. E.g.:
+    aws --profile mfa s3 ls
 """
 
 
