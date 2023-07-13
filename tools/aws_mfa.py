@@ -39,6 +39,11 @@ if 'arn' not in config['mfa']:
 else:
     mfa_arn = config['mfa']['arn']
 
+if 'region' not in config['mfa']:
+    region = input("region [default us-west-2]: ") or "us-west-2"
+else:
+    region = config['mfa']['region']
+
 token = input("mfa token: ")
 
 response = client.get_session_token(
@@ -53,6 +58,7 @@ aws_session_token = response["Credentials"]["SessionToken"]
 config['mfa']['aws_access_key_id'] = aws_access_key_id
 config['mfa']['aws_secret_access_key'] = aws_secret_access_key
 config['mfa']['aws_session_token'] = aws_session_token
+config['mfa']['region'] = region
 
 with open(credentials_file, "w") as f:
     config.write(f)
