@@ -1,46 +1,93 @@
 # This Lambda searches for EC2 instances with the tag key "autostop"
-# and value of 1-24, representing the UTC hour to stop the instance.
-# The Lambda can be triggered by an Eventbridge or Cloudwatch rule.
+# or "autostart" and value of 1-24, representing the UTC hour to stop
+# or start the instance. The Lambda can be triggered by an Eventbridge
+# or Cloudwatch rule.
 
-# Adapted from https://aws.amazon.com/premiumsupport/knowledge-center/start-stop-lambda-eventbridge/
+# Inspired by https://aws.amazon.com/premiumsupport/knowledge-center/start-stop-lambda-eventbridge/
+
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Callable
 
 import boto3
-from datetime import datetime, timezone
 
 hours_list = [str(h) for h in range(24)]
-
-custom_filter = [{
-    'Name': 'tag:autostop',
-    'Values': hours_list
-}]
-
-client = boto3.client('ec2')
-response = client.describe_instances(Filters=custom_filter)
-
-instances = [(i['InstanceId'], i['Tags'])
-             for reservation in response['Reservations']
-             for i in reservation['Instances']]
-
-# The hour (24-hour clock) as a decimal number, no zero padding
-# E.g., 2 = 2:00 am UTC
-current_hour = datetime.now(timezone.utc).strftime('%-k')
-print(f'current_hour: {current_hour}')
-
-instances_to_stop = []
-
-for instance in instances:
-    instance_id, tags = instance[0:2]
-    for tag in tags:
-        if tag['Key'] == 'autostop' and tag['Value'] == current_hour:
-            instances_to_stop.append(instance_id)
-
 region = 'us-west-2'
-ec2 = boto3.client('ec2', region_name=region)
+ec2_client = boto3.client('ec2', region_name=region)
+
+
+@dataclass
+class InstanceTag:
+    """
+    Represents tags and callable for an EC2 instance.
+    """
+    tag: str
+    action: Callable[[list], None]
+
+
+instance_tags = [
+    InstanceTag(tag='autostart', action=ec2_client.start_instances),
+    InstanceTag(tag='autostop', action=ec2_client.stop_instances)
+]
+
+
+def get_instances(tag_filter: str, current_hour: str):
+    """
+    Retrieves a list of instances to start or stop based on the given tag filter and current hour.
+
+    Args:
+        tag_filter (str): The tag filter to use for retrieving instances.
+        current_hour (str): The current hour.
+
+    Returns:
+        list: A list of instance IDs to start or stop.
+    """
+
+    instances_to_start_or_stop = []
+
+    custom_filter = [{
+        'Name': f'tag:{tag_filter}',
+        'Values': hours_list
+    }]
+
+    response = ec2_client.describe_instances(Filters=custom_filter)
+
+    instances = [(i['InstanceId'], i['Tags'])
+                 for reservation in response['Reservations']
+                 for i in reservation['Instances']]
+
+    for instance in instances:
+        instance_id, tags = instance[0:2]
+        for tag in tags:
+            if tag['Key'] == tag_filter and tag['Value'] == current_hour:
+                instances_to_start_or_stop.append(instance_id)
+
+    return instances_to_start_or_stop
+
+
+def get_current_hour():
+    """
+    Get the current hour in UTC.
+    """
+    # The hour (24-hour clock) as a decimal number, no zero padding
+    # E.g., 2 = 2:00 am UTC
+    current_hour = datetime.now(timezone.utc).strftime('%-k')
+    print(f'current_hour: {current_hour}')
+
+    return current_hour
+
 
 def lambda_handler(event, context):
-    if instances_to_stop:
-        ec2.stop_instances(InstanceIds=instances_to_stop)
-        print('stopped your instances: ' + str(instances_to_stop))
-    else:
-        print('no instances to stop')
-        
+    current_hour = get_current_hour()
+
+    for tag in instance_tags:
+        instances = get_instances(tag.tag, current_hour)
+        if instances:
+            tag.action(InstanceIds=instances)
+            print(f'{tag.tag} instances {instances}')
+        else:
+            print(f'no instances to {tag.tag}')
+
+
+if __name__ == '__main__':
+    lambda_handler(None, None)
