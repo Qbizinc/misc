@@ -43,26 +43,20 @@ def get_instances(tag_filter: str, current_hour: str):
         list: A list of instance IDs to start or stop.
     """
 
-    instances_to_start_or_stop = []
-
-    custom_filter = [{
-        'Name': f'tag:{tag_filter}',
-        'Values': hours_list
-    }]
+    custom_filter = [{'Name': f'tag:{tag_filter}', 'Values': hours_list}]
 
     response = ec2_client.describe_instances(Filters=custom_filter)
 
-    instances = [(i['InstanceId'], i['Tags'])
-                 for reservation in response['Reservations']
-                 for i in reservation['Instances']]
-
-    for instance in instances:
-        instance_id, tags = instance[0:2]
-        for tag in tags:
-            if tag['Key'] == tag_filter and tag['Value'] == current_hour:
-                instances_to_start_or_stop.append(instance_id)
+    instances_to_start_or_stop = [
+        instance['InstanceId']
+        for reservation in response['Reservations']
+        for instance in reservation['Instances']
+        for tag in instance['Tags']
+        if tag['Key'] == tag_filter and tag['Value'] == current_hour
+    ]
 
     return instances_to_start_or_stop
+
 
 
 def get_current_hour():
